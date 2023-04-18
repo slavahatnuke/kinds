@@ -9,7 +9,7 @@
 /example.run.*
 /**example.run.*
 *.spec.*
-vitest.config
-vitest.cd.config
+vitest.config.*
+vitest.cd.config.*
 /readme
 /TOOLS.md
