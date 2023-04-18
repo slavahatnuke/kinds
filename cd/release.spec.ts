@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 describe('release', () => {
   it('test package.json version', async () => {
     // eslint-disable-next-line @typescript-eslint/no-var-requires
-    const installedVersion = require(`${__dirname}/../node_modules/strict-stream/package.json`);
+    const installedVersion = require(`${__dirname}/../node_modules/kinds/package.json`);
     // eslint-disable-next-line @typescript-eslint/no-var-requires
     const currentVersion = require(`${__dirname}/../package.json`);
 
