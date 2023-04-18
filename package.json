@@ -1,0 +1,58 @@
+{
+  "name": "kinds",
+  "version": "0.0.1",
+  "description": "kinds of data",
+  "main": "./index.js",
+  "module": "./index.mjs",
+  "types": "./index.d.ts",
+  "dependencies": {},
+  "devDependencies": {
+    "@changesets/cli": "^2.26.0",
+    "@types/node": "^18.11.18",
+    "@typescript-eslint/eslint-plugin": "^5.55.0",
+    "@typescript-eslint/parser": "^5.55.0",
+    "eslint": "^8.36.0",
+    "madge": "^6.0.0",
+    "tsup": "^6.6.3",
+    "typescript": "^4.9.5",
+    "vitest": "^0.29.3",
+    "eslint-config-prettier": "^8.5.0",
+    "eslint-plugin-prettier": "^4.0.0",
+    "prettier": "^2.3.2"
+  },
+  "scripts": {
+    "test": "npm run test.vitest.run",
+    "dev": "npm run test.vitest",
+    "ci": "npm run test.ci && npm run build",
+    "ci.clean": "git clean -f -d",
+    "release.start": "changeset",
+    "release.finish": "changeset version",
+    "release.up": "npm run release.start && npm run release.finish",
+    "release.deploy": "npm run ci && (cp -r dist/* . && rm -rf ./dist && rm -rf ./readme) && changeset publish",
+    "test.watch": "vitest --config src/vitest.config.ts",
+    "test.cd": "npm run test.release",
+    "test.release": "npm install kinds --no-save && vitest --config src/vitest.cd.config.ts run",
+    "test.vitest.run": "vitest --config src/vitest.config.ts run",
+    "test.compilation": "tsc --noEmit",
+    "test.deps": "npx madge --circular --ts-config tsconfig.json --extensions ts src",
+    "test.ci": "npm run test.compilation && npm run test.deps && npm run lint.only && npm run test",
+    "build.v2": "tsup src --format cjs,esm --dts",
+    "build.v1": "tsc --outDir dist --module commonjs --declaration true",
+    "build": "npm run build.v2 && npm run build.v1",
+    "lint": "eslint \"src/**/*.ts\" --fix",
+    "lint.only": "eslint \"src/**/*.ts\""
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/slavahatnuke/kinds.git"
+  },
+  "keywords": [
+    "kinds"
+  ],
+  "author": "slava hatnuke",
+  "license": "MIT",
+  "bugs": {
+    "url": "https://github.com/slavahatnuke/kinds/issues"
+  },
+  "homepage": "https://github.com/slavahatnuke/kinds#readme"
+}
