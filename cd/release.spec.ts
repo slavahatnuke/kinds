@@ -12,10 +12,10 @@ describe('release', () => {
   });
 
   it('smoke test / ICommand', async () => {
-    type ICreateUser = ICommand<{ type: 'CreateUser', name: string }>;
+    type ICreateUser = ICommand<{ type: 'CreateUser'; name: string }>;
     const createUser: ICreateUser = {
       type: 'CreateUser',
-      name: 'user name'
-    }
-  })
+      name: 'user name',
+    };
+  });
 });
