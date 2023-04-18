@@ -1,6 +1,6 @@
 {
   "name": "kinds",
-  "version": "0.0.1",
+  "version": "2.0.1",
   "description": "kinds of data",
   "main": "./index.js",
   "module": "./index.mjs",
