@@ -34,7 +34,7 @@
     "release.deploy": "npm run ci && (cp -r dist/* . && rm -rf ./dist && rm -rf ./readme) && changeset publish",
     "test.watch": "vitest --config src/vitest.config.ts",
     "test.cd": "npm run test.release",
-    "test.release": "npm install kinds --no-save && vitest --config src/vitest.cd.config.ts run",
+    "test.release": "npm install kinds --force --no-save && vitest --config src/vitest.cd.config.ts run",
     "test.vitest.run": "vitest --config src/vitest.config.ts run",
     "test.compilation": "tsc --noEmit",
     "test.deps": "npx madge --circular --ts-config tsconfig.json --extensions ts src",
