@@ -1,6 +1,6 @@
 {
   "name": "kinds",
-  "version": "2.0.3",
+  "version": "2.0.4",
   "description": "kinds of data",
   "main": "./index.js",
   "module": "./index.mjs",
@@ -36,10 +36,11 @@
     "test.vitest.run": "vitest --config src/vitest.config.ts run",
     "test.compilation": "tsc --noEmit",
     "test.deps": "npx madge --circular --ts-config tsconfig.json --extensions ts src",
-    "test.ci": "npm run test.compilation && npm run test.deps && npm run lint.only && npm run test",
+    "test.ci": "npm run test.compilation && npm run test.deps && npm run lint && npm run test",
     "build.v2": "tsup src --format cjs,esm --dts",
     "build.v1": "tsc --outDir dist --module commonjs --declaration true",
-    "build": "npm run build.v2 && npm run build.v1",
+    "build": "npm run build.v1",
+    "build.with.v2": "npm run build.v2 && npm run build.v1",
     "lint": "eslint \"src/**/*.ts\" --fix",
     "lint.only": "eslint \"src/**/*.ts\""
   },
