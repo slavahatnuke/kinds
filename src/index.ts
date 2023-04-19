@@ -15,6 +15,7 @@ export enum Kind {
   rejection = 'rejection',
   error = 'error',
   notification = 'notification',
+
   model = 'model',
   none = 'none',
 }
@@ -44,6 +45,7 @@ export type IQuery<T extends IType, Output = void> = T &
 export type IEvent<T extends IType> = T & IKind<Kind.event>;
 export type IRejection<T extends IType> = T & IKind<Kind.rejection>;
 export type INotification<T extends IType> = T & IKind<Kind.notification>;
+
 export type IModel<T extends IType> = T & IKind<Kind.model>;
 
 export type IError<T extends IType> = Error &
@@ -88,14 +90,16 @@ export type IHandlers<Input extends IAction, Next extends IAction> = {
   >;
 };
 
+export type IActionKind =
+  | Kind.command
+  | Kind.query
+  | Kind.event
+  | Kind.rejection
+  | Kind.notification
+  | Kind.error;
+
 export type IFeature<Input extends IAction, Next extends IAction = INone> = {
-  [K in
-    | Kind.command
-    | Kind.query
-    | Kind.event
-    | Kind.rejection
-    | Kind.notification
-    | Kind.error]: <Type extends Extract<Input, IKind<K>>['type']>(
+  [K in IActionKind]: <Type extends Extract<Input, IKind<K>>['type']>(
     input: Type,
     handler: IApiHandler<
       IUseType<Input, Type>,
@@ -110,4 +114,15 @@ export type IFeature<Input extends IAction, Next extends IAction = INone> = {
     handlers: IHandlers<Input, Next extends INone ? Input : Next>,
     otherwise?: (input: any, next: IApi<Next>) => IPromise<any>,
   ) => Next extends INone ? IApi<Input> : IApiHandler<Input, Next>;
+
+  NextApi: (nextApi: (input: Next) => IPromise<IUseOutput<Next>>) => IApi<Next>;
+
+  GetKind: (
+    handlers: IHandlers<
+      Exclude<Input | Next, INone>,
+      Exclude<Input | Next, INone>
+    >,
+  ) => (
+    input: Input | Next | IAction | INone | IType | any,
+  ) => IActionKind | Kind.none;
 };

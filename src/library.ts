@@ -1,5 +1,6 @@
 import {
   IAction,
+  IActionKind,
   IApi,
   IApiHandler,
   IFeature,
@@ -111,5 +112,27 @@ export function Feature<
 
       return api;
     },
+    NextApi: (next) => next,
+    GetKind: (handlers) => (input: any) => {
+      if (input instanceof Object && (handlers as any)[input.type]) {
+        const h: IHandler<Input, Next> = (handlers as any)[
+          input.type
+        ] as IHandler<Input, Next>;
+
+        return h.kind as IActionKind;
+      } else {
+        return Kind.none;
+      }
+    },
   };
+}
+
+export function Never(_: never): never {
+  let value = 'UNKNOWN';
+
+  try {
+    value = JSON.stringify(_);
+  } catch {}
+
+  throw new Error(`Never: ${value}`);
 }
