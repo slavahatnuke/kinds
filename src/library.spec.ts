@@ -438,6 +438,143 @@ describe(Feature.name, () => {
         Never(kind);
     }
   });
+
+  it('app / composition', async () => {
+    const app = Feature<IAccountApi | IPostApi, IAccountEvents | IPostEvents>();
+    const appBackend = Feature<IAccountEvents | IPostEvents>();
+
+    function AccountApi() {
+      const x = Feature<IAccountApi, IAccountEvents>();
+      const y = Feature<IAccountEvents>();
+
+      const front = x.Handlers({
+        ...x.command(Account.CreateAccount, async (command, next) => {
+          const account: IAccount = {
+            type: Account.Account,
+            id: '1',
+            name: command.name,
+          };
+
+          await next({
+            type: Account.AccountCreated,
+            account,
+          });
+
+          return account;
+        }),
+        ...x.query(Account.GetAccount, async (query) => {
+          return {
+            type: Account.Account,
+            id: query.id,
+            name: `Name ${query.id}`,
+          };
+        }),
+      });
+
+      const back = y.Handlers({
+        ...y.event(Account.AccountCreated, (input, next) => {}),
+      });
+      return { front, back };
+    }
+
+    function PostApi() {
+      const x = Feature<IPostApi, IPostEvents>();
+      const y = Feature<IPostEvents>();
+
+      const front = x.Handlers({
+        ...x.command(Post.CreatePost, async (command, next) => {
+          const post: IPost = {
+            type: Post.Post,
+            id: '1',
+            title: command.title,
+            accountId: '1',
+          };
+
+          await next({
+            type: Post.PostCreated,
+            post,
+          });
+
+          return post;
+        }),
+        ...x.query(Post.GetPost, async (query) => {
+          return {
+            type: Post.Post,
+            id: query.id,
+            title: `Title ${query.id}`,
+            accountId: '1',
+          };
+        }),
+        ...x.query(Post.GetPosts, async (query) => {
+          return [];
+        }),
+        ...x.command(Post.DeletePost, async (command, next) => {
+          await next({
+            type: Post.PostDeleted,
+            id: command.id,
+          });
+          return command.id;
+        }),
+      });
+
+      const back = y.Handlers({
+        ...y.event(Post.PostCreated, (input, next) => {}),
+        ...y.event(Post.PostDeleted, (input, next) => {}),
+        ...y.rejection(Post.NoRightsToCreatePost, (input, next) => {}),
+        ...y.error(Post.PostError, (input, next) => {}),
+        ...y.notification(Post.PostIsCreating, (input, next) => {}),
+      });
+
+      return { front, back };
+    }
+
+    const accountApi = AccountApi();
+    const postApi = PostApi();
+
+    const xApi = app.Api({
+      ...accountApi.front,
+      ...postApi.front,
+    });
+
+    const yHandlers = appBackend.Handlers({
+      ...accountApi.back,
+      ...postApi.back,
+    });
+
+    const result1 = await xApi(
+      {
+        type: Account.CreateAccount,
+        name: 'test',
+      },
+      app.NextApi(async (input) => {
+        return appBackend.Api({
+          ...yHandlers,
+        })(input);
+      }),
+    );
+
+    expect(result1).toEqual({
+      id: '1',
+      name: 'test',
+      type: 'Account',
+    });
+
+    const result2 = await xApi(
+      {
+        type: Account.GetAccount,
+        id: '123',
+      },
+      appBackend.Api({
+        ...yHandlers,
+      }),
+    );
+
+    expect(result2).toEqual({
+      id: '123',
+      name: 'Name 123',
+      type: 'Account',
+    });
+  });
 });
 
 describe(Never.name, () => {
