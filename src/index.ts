@@ -110,6 +110,7 @@ export type IFeature<Input extends IAction, Next extends IAction = INone> = {
   Handlers: (
     handlers: IHandlers<Input, Next extends INone ? Input : Next>,
   ) => IHandlers<Input, Next extends INone ? Input : Next>;
+
   Api: (
     handlers: IHandlers<Input, Next extends INone ? Input : Next>,
     otherwise?: (input: any, next: IApi<Next>) => IPromise<any>,
