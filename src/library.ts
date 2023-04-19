@@ -17,9 +17,11 @@ const DEFAULT_OTHERWISE = (input: any) => {
   throw new Error(`No handler for ${JSON.stringify(input)}`);
 };
 
-function make<K extends Kind, Input extends IAction, Next extends IAction>(
-  kind: K,
-) {
+function make<
+  K extends Kind,
+  Input extends IAction,
+  Next extends IAction | INone,
+>(kind: K) {
   return <I extends Extract<Input, IKind<K>>['type']>(
     type: I,
     handler: IApiHandler<IUseType<Input, I>, Next extends INone ? Input : Next>,
@@ -41,12 +43,12 @@ function make<K extends Kind, Input extends IAction, Next extends IAction>(
 
 export type IFeatureApi<
   Input extends IAction,
-  Next extends IAction = INone,
+  Next extends IAction | INone = INone,
 > = Next extends INone ? IApi<Input> : IApiHandler<Input, Next>;
 
 export function Feature<
   Input extends IAction,
-  Next extends IAction = INone,
+  Next extends IAction | INone = INone,
 >(): IFeature<Input, Next> {
   let eventHandlerMap:
     | Record<Input['type'], IApiHandler<Input, Next>[]>
@@ -75,7 +77,7 @@ export function Feature<
 
           if (h.kind === Kind.command || h.kind === Kind.query) {
             // simply handle the command/query
-            return h.handler(input, next || api);
+            return h.handler(input, (next || api) as any);
           } else {
             // build event handler map
             if (!eventHandlerMap) {
@@ -100,13 +102,13 @@ export function Feature<
 
               if (eventHandlers) {
                 await Promise.all(
-                  eventHandlers.map((h) => h(input, next || api)),
+                  eventHandlers.map((h) => h(input, (next || api) as any)),
                 );
               }
             }
           }
         } else {
-          return otherwise(input, next || api);
+          return otherwise(input, (next || api) as any);
         }
       }) as IFeatureApi<Input, Next>;
 

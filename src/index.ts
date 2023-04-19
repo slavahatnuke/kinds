@@ -52,25 +52,33 @@ export type IError<T extends IType> = Error &
   IType<{ type: T['type']; data: T }> &
   IKind<Kind.error>;
 
+export type IActionKind =
+  | Kind.command
+  | Kind.query
+  | Kind.event
+  | Kind.rejection
+  | Kind.notification
+  | Kind.error;
+
 export type IAction<
   Type extends IType = IType,
-  Kind extends IKind = IKind,
+  Kind extends IKind<IActionKind> = IKind<IActionKind>,
 > = Type & Kind;
 
 export type INone = IType<{ type: Kind.none }> & IKind<Kind.none>;
 
 export type IPromise<T> = T | Promise<T>;
 
-export type IApi<Action extends IAction> = <Input extends Action>(
+export type IApi<Action extends IAction | INone> = <Input extends Action>(
   input: Input,
 ) => IPromise<IUseOutput<IUseType<Action, Input['type']>>>;
 
-export type IApiHandler<Input extends IAction, Next extends IAction> = (
+export type IApiHandler<Input extends IAction, Next extends IAction | INone> = (
   input: Input,
   next: IApi<Next>,
 ) => IPromise<IUseOutput<Input>>;
 
-export type IHandler<Input extends IAction, Next extends IAction> = {
+export type IHandler<Input extends IAction, Next extends IAction | INone> = {
   kind: IUseKind<Input>;
   type: Input['type'];
   handler: IApiHandler<Input, Next>;
@@ -90,15 +98,10 @@ export type IHandlers<Input extends IAction, Next extends IAction> = {
   >;
 };
 
-export type IActionKind =
-  | Kind.command
-  | Kind.query
-  | Kind.event
-  | Kind.rejection
-  | Kind.notification
-  | Kind.error;
-
-export type IFeature<Input extends IAction, Next extends IAction = INone> = {
+export type IFeature<
+  Input extends IAction,
+  Next extends IAction | INone = INone,
+> = {
   [K in IActionKind]: <Type extends Extract<Input, IKind<K>>['type']>(
     input: Type,
     handler: IApiHandler<
