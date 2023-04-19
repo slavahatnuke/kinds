@@ -1,5 +1,11 @@
 # kinds
 
+## 2.0.6
+
+### Patch Changes
+
+- up
+
 ## 2.0.5
 
 ### Patch Changes
