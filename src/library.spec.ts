@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Feature, Never } from './library';
+import { Api, Feature, GetKind, Never } from './library';
 import {
   ICommand,
   IError,
@@ -92,10 +92,11 @@ type IAccountEvents = IAccountCreated;
 
 describe(Feature.name, () => {
   it('api', async () => {
-    const x = Feature<ICreateAccount | IGetAccount, IAccountCreated>();
-    const y = Feature<IAccountCreated>();
+    const { event } = Feature<ICreateAccount | IGetAccount | IAccountCreated>();
 
-    const xApi = x.Api({
+    const mockedEventHandler = vi.fn();
+
+    const api = Api<ICreateAccount | IGetAccount | IAccountCreated>({
       [Account.CreateAccount]: {
         type: Account.CreateAccount,
         kind: Kind.command,
@@ -125,23 +126,14 @@ describe(Feature.name, () => {
           };
         },
       },
+      ...event(Account.AccountCreated, mockedEventHandler),
+      ...event(Account.AccountCreated, mockedEventHandler),
     });
 
-    const mockedEventHandler = vi.fn();
-    const yHandlers = y.Handlers({
-      ...y.event(Account.AccountCreated, mockedEventHandler),
-      ...y.event(Account.AccountCreated, mockedEventHandler),
+    const result1 = await api({
+      type: Account.CreateAccount,
+      name: 'test',
     });
-
-    const result1 = await xApi(
-      {
-        type: Account.CreateAccount,
-        name: 'test',
-      },
-      y.Api({
-        ...yHandlers,
-      }),
-    );
 
     expect(result1).toEqual({
       id: '1',
@@ -149,15 +141,10 @@ describe(Feature.name, () => {
       type: 'Account',
     });
 
-    const result2 = await xApi(
-      {
-        type: Account.GetAccount,
-        id: '123',
-      },
-      y.Api({
-        ...yHandlers,
-      }),
-    );
+    const result2 = await api({
+      type: Account.GetAccount,
+      id: '123',
+    });
 
     expect(result2).toEqual({
       id: '123',
@@ -179,9 +166,7 @@ describe(Feature.name, () => {
   });
 
   it('api / default otherwise', async () => {
-    const x = Feature<ICreateAccount>();
-
-    const xApi = x.Api({
+    const api = Api<ICreateAccount>({
       [Account.CreateAccount]: {
         type: Account.CreateAccount,
         kind: Kind.command,
@@ -197,7 +182,7 @@ describe(Feature.name, () => {
       },
     });
 
-    const result1 = await xApi({
+    const result1 = await api({
       type: Account.CreateAccount,
       name: 'test',
     });
@@ -209,14 +194,12 @@ describe(Feature.name, () => {
     });
 
     await expect(async () => {
-      await xApi('foooo' as any);
-    }).rejects.toThrow('No handler for "foooo"');
+      await api('foooo' as any);
+    }).rejects.toThrow('NO_HANDLER: "foooo"');
   });
 
   it('api / custom otherwise', async () => {
-    const x = Feature<ICreateAccount>();
-
-    const xApi = x.Api(
+    const xApi = Api<ICreateAccount>(
       {
         [Account.CreateAccount]: {
           type: Account.CreateAccount,
@@ -232,6 +215,7 @@ describe(Feature.name, () => {
           },
         },
       },
+      undefined,
       (input) => {
         return null;
       },
@@ -252,11 +236,14 @@ describe(Feature.name, () => {
   });
 
   it('app / very flat api', async () => {
-    const x = Feature<IAccountApi | IPostApi, IAccountEvents | IPostEvents>();
-    const y = Feature<IAccountEvents | IPostEvents>();
+    const when = Feature<
+      IAccountApi | IPostApi | IAccountEvents | IPostEvents
+    >();
 
-    const xApi = x.Api({
-      ...x.command(Account.CreateAccount, async (command, next) => {
+    const mockedEventHandler = vi.fn();
+
+    const api = Api<IAccountApi | IPostApi | IAccountEvents | IPostEvents>({
+      ...when.command(Account.CreateAccount, async (command, next) => {
         const account: IAccount = {
           type: Account.Account,
           id: '1',
@@ -270,14 +257,14 @@ describe(Feature.name, () => {
 
         return account;
       }),
-      ...x.query(Account.GetAccount, async (query) => {
+      ...when.query(Account.GetAccount, async (query) => {
         return {
           type: Account.Account,
           id: query.id,
           name: `Name ${query.id}`,
         };
       }),
-      ...x.command(Post.CreatePost, async (command, next) => {
+      ...when.command(Post.CreatePost, async (command, next) => {
         const post: IPost = {
           type: Post.Post,
           id: '1',
@@ -292,7 +279,7 @@ describe(Feature.name, () => {
 
         return post;
       }),
-      ...x.query(Post.GetPost, async (query) => {
+      ...when.query(Post.GetPost, async (query) => {
         return {
           type: Post.Post,
           id: query.id,
@@ -300,10 +287,10 @@ describe(Feature.name, () => {
           accountId: '1',
         };
       }),
-      ...x.query(Post.GetPosts, async (query) => {
+      ...when.query(Post.GetPosts, async (query) => {
         return [];
       }),
-      ...x.command(Post.DeletePost, async (command, next) => {
+      ...when.command(Post.DeletePost, async (command, next) => {
         await next({
           type: Post.PostDeleted,
           id: command.id,
@@ -311,41 +298,30 @@ describe(Feature.name, () => {
 
         return command.id;
       }),
-    });
-
-    const mockedEventHandler = vi.fn();
-    const yHandlers = y.Handlers({
-      ...y.event(Account.AccountCreated, (input, next) => {
+      ...when.event(Account.AccountCreated, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...y.event(Post.PostCreated, (input, next) => {
+      ...when.event(Post.PostCreated, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...y.event(Post.PostDeleted, (input, next) => {
+      ...when.event(Post.PostDeleted, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...y.error(Post.PostError, (input, next) => {
+      ...when.error(Post.PostError, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...y.notification(Post.PostIsCreating, (input, next) => {
+      ...when.notification(Post.PostIsCreating, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...y.rejection(Post.NoRightsToCreatePost, (input, next) => {
+      ...when.rejection(Post.NoRightsToCreatePost, (input, next) => {
         mockedEventHandler(input);
       }),
     });
 
-    const result1 = await xApi(
-      {
-        type: Account.CreateAccount,
-        name: 'test',
-      },
-      x.NextApi(async (input) => {
-        return y.Api({
-          ...yHandlers,
-        })(input);
-      }),
-    );
+    const result1 = await api({
+      type: Account.CreateAccount,
+      name: 'test',
+    });
 
     expect(result1).toEqual({
       id: '1',
@@ -353,21 +329,17 @@ describe(Feature.name, () => {
       type: 'Account',
     });
 
-    const result2 = await xApi(
-      {
-        type: Account.GetAccount,
-        id: '123',
-      },
-      y.Api({
-        ...yHandlers,
-      }),
-    );
+    const result2 = await api({
+      type: Account.GetAccount,
+      id: '123',
+    });
 
     expect(result2).toEqual({
       id: '123',
       name: 'Name 123',
       type: 'Account',
     });
+
     expect(mockedEventHandler.mock.calls).toEqual([
       [
         {
@@ -385,7 +357,7 @@ describe(Feature.name, () => {
   it('get kind', () => {
     const x = Feature<ICreateAccount | IGetAccount>();
 
-    const handlers = x.Handlers({
+    const handlers = x.handlers({
       ...x.command(Account.CreateAccount, async (command, next) => {
         const account: IAccount = {
           type: Account.Account,
@@ -404,7 +376,7 @@ describe(Feature.name, () => {
       }),
     });
 
-    const getKind = x.GetKind(handlers);
+    const getKind = GetKind(handlers as any);
 
     expect(
       getKind({
@@ -440,14 +412,14 @@ describe(Feature.name, () => {
   });
 
   it('app / composition', async () => {
-    const app = Feature<IAccountApi | IPostApi, IAccountEvents | IPostEvents>();
-    const appBackend = Feature<IAccountEvents | IPostEvents>();
+    const app = Feature<
+      IAccountApi | IPostApi | IAccountEvents | IPostEvents
+    >();
 
     function AccountApi() {
-      const x = Feature<IAccountApi, IAccountEvents>();
-      const y = Feature<IAccountEvents>();
+      const x = Feature<IAccountApi | IAccountEvents>();
 
-      const front = x.Handlers({
+      const handlers = x.handlers({
         ...x.command(Account.CreateAccount, async (command, next) => {
           const account: IAccount = {
             type: Account.Account,
@@ -469,19 +441,16 @@ describe(Feature.name, () => {
             name: `Name ${query.id}`,
           };
         }),
+        ...x.event(Account.AccountCreated, (input, next) => {}),
       });
 
-      const back = y.Handlers({
-        ...y.event(Account.AccountCreated, (input, next) => {}),
-      });
-      return { front, back };
+      return handlers;
     }
 
     function PostApi() {
-      const x = Feature<IPostApi, IPostEvents>();
-      const y = Feature<IPostEvents>();
+      const x = Feature<IPostApi | IPostEvents>();
 
-      const front = x.Handlers({
+      const handlers = x.handlers({
         ...x.command(Post.CreatePost, async (command, next) => {
           const post: IPost = {
             type: Post.Post,
@@ -515,43 +484,28 @@ describe(Feature.name, () => {
           });
           return command.id;
         }),
+        ...x.event(Post.PostCreated, (input, next) => {}),
+        ...x.event(Post.PostDeleted, (input, next) => {}),
+        ...x.rejection(Post.NoRightsToCreatePost, (input, next) => {}),
+        ...x.error(Post.PostError, (input, next) => {}),
+        ...x.notification(Post.PostIsCreating, (input, next) => {}),
       });
 
-      const back = y.Handlers({
-        ...y.event(Post.PostCreated, (input, next) => {}),
-        ...y.event(Post.PostDeleted, (input, next) => {}),
-        ...y.rejection(Post.NoRightsToCreatePost, (input, next) => {}),
-        ...y.error(Post.PostError, (input, next) => {}),
-        ...y.notification(Post.PostIsCreating, (input, next) => {}),
-      });
-
-      return { front, back };
+      return handlers;
     }
 
     const accountApi = AccountApi();
     const postApi = PostApi();
 
-    const xApi = app.Api({
-      ...accountApi.front,
-      ...postApi.front,
+    const xApi = Api<IAccountApi | IPostApi | IAccountEvents | IPostEvents>({
+      ...accountApi,
+      ...postApi,
     });
 
-    const yHandlers = appBackend.Handlers({
-      ...accountApi.back,
-      ...postApi.back,
+    const result1 = await xApi({
+      type: Account.CreateAccount,
+      name: 'test',
     });
-
-    const result1 = await xApi(
-      {
-        type: Account.CreateAccount,
-        name: 'test',
-      },
-      app.NextApi(async (input) => {
-        return appBackend.Api({
-          ...yHandlers,
-        })(input);
-      }),
-    );
 
     expect(result1).toEqual({
       id: '1',
@@ -559,15 +513,10 @@ describe(Feature.name, () => {
       type: 'Account',
     });
 
-    const result2 = await xApi(
-      {
-        type: Account.GetAccount,
-        id: '123',
-      },
-      appBackend.Api({
-        ...yHandlers,
-      }),
-    );
+    const result2 = await xApi({
+      type: Account.GetAccount,
+      id: '123',
+    });
 
     expect(result2).toEqual({
       id: '123',
