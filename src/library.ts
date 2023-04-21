@@ -134,10 +134,7 @@ export function Api<
 }
 
 export function GetKind<
-  Handlers extends IHandlers<
-    IAction<{ type: any }>,
-    IAction<{ type: any }> | INone
-  >,
+  Handlers extends { [P in any]: { kind: any } | undefined | void },
 >(handlers: Handlers) {
   if (!(handlers instanceof Object)) {
     throw new Error('handlers must be an object');
@@ -153,11 +150,15 @@ export function GetKind<
         input.type
       ] as IHandler<IAction, INone>;
 
-      return h.kind as IActionKind;
+      return (h?.kind as IActionKind) || Kind.none;
     } else {
       return Kind.none;
     }
   };
+}
+
+export function Nothing(...args: any[]): any {
+  return null;
 }
 
 export function Never(_: never): never {

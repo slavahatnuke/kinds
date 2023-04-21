@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Api, Feature, GetKind, Never } from './library';
+import { Api, Feature, GetKind, Never, Nothing } from './library';
 import {
   ICommand,
   IError,
@@ -90,8 +90,99 @@ type IPostEvents =
 type IAccountApi = ICreateAccount | IGetAccount;
 type IAccountEvents = IAccountCreated;
 
-describe(Feature.name, () => {
+describe(Api.name, () => {
   it('api', async () => {
+    const { command, event, handlers } = Feature<
+      ICreateAccount | IAccountCreated
+    >();
+
+    const api = Api(
+      handlers({
+        ...command(Account.CreateAccount, async (command, next) => {
+          const account: IAccount = {
+            type: Account.Account,
+            id: '1',
+            name: command.name,
+          };
+
+          await next({
+            type: Account.AccountCreated,
+            account,
+          });
+
+          return account;
+        }),
+        ...event(Account.AccountCreated, Nothing),
+      }),
+    );
+
+    const account = await api({
+      type: Account.CreateAccount,
+      name: 'test',
+    });
+
+    expect(account).toEqual({
+      id: '1',
+      name: 'test',
+      type: 'Account',
+    });
+  });
+  it('api / listener', async () => {
+    const { command, event, handlers } = Feature<
+      ICreateAccount | IAccountCreated
+    >();
+
+    const messages: any[] = [];
+    const listener = async (message: any) => {
+      messages.push(message);
+    };
+    const api = Api(
+      handlers({
+        ...command(Account.CreateAccount, async (command, next) => {
+          const account: IAccount = {
+            type: Account.Account,
+            id: '1',
+            name: command.name,
+          };
+
+          await next({
+            type: Account.AccountCreated,
+            account,
+          });
+
+          return account;
+        }),
+        ...event(Account.AccountCreated, Nothing),
+      }),
+      listener,
+    );
+
+    const account = await api({
+      type: Account.CreateAccount,
+      name: 'test',
+    });
+
+    expect(account).toEqual({
+      id: '1',
+      name: 'test',
+      type: 'Account',
+    });
+
+    expect(messages).toEqual([
+      {
+        type: Account.CreateAccount,
+        name: 'test',
+      },
+      {
+        type: Account.AccountCreated,
+        account: account,
+      },
+    ]);
+  });
+});
+
+describe(Feature.name, () => {
+  it('feature and api', async () => {
     const { event } = Feature<ICreateAccount | IGetAccount | IAccountCreated>();
 
     const mockedEventHandler = vi.fn();
@@ -376,7 +467,7 @@ describe(Feature.name, () => {
       }),
     });
 
-    const getKind = GetKind(handlers as any);
+    const getKind = GetKind(handlers);
 
     expect(
       getKind({
