@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Api, Feature, GetKind, Never, Nothing } from './library';
+import { Api, Feature, GetKind, KindOfError, Never, Nothing } from './library';
 import {
   ICommand,
   IError,
@@ -9,7 +9,7 @@ import {
   IQuery,
   IRejection,
   Kind,
-} from './index';
+} from './index.type';
 
 enum Account {
   Account = 'Account',
@@ -176,6 +176,121 @@ describe(Api.name, () => {
       {
         type: Account.AccountCreated,
         account: account,
+      },
+    ]);
+  });
+
+  it('api / overrides', async () => {
+    const { command, event, error, handlers } = Feature<
+      ICreateAccount | IAccountCreated
+    >();
+
+    const messages: any[] = [];
+
+    const api = Api(
+      handlers({
+        ...command(Account.CreateAccount, async (command, next) => {
+          const account: IAccount = {
+            type: Account.Account,
+            id: '1',
+            name: command.name,
+          };
+
+          await next({
+            type: Account.AccountCreated,
+            account,
+          });
+
+          return account;
+        }),
+        ...event(Account.AccountCreated, Nothing),
+      }),
+      async (message) => {
+        messages.push(message);
+      },
+    );
+
+    const account1 = await api({
+      type: Account.CreateAccount,
+      name: 'test',
+    });
+
+    expect(account1).toEqual({
+      id: '1',
+      name: 'test',
+      type: 'Account',
+    });
+
+    expect(messages).toEqual([
+      {
+        name: 'test',
+        type: Account.CreateAccount,
+      },
+      {
+        account: account1,
+        type: Account.AccountCreated,
+      },
+    ]);
+
+    const featureOverrides = Feature<ICreateAccount, IAccountCreated>();
+
+    const overrides = featureOverrides.handlers({
+      ...featureOverrides.command(
+        Account.CreateAccount,
+        async (command, next) => {
+          const account: IAccount = {
+            type: Account.Account,
+            id: '2',
+            name: command.name,
+          };
+
+          await next({
+            type: Account.AccountCreated,
+            account: {
+              ...account,
+              name: 'overriden',
+            },
+          });
+
+          return account;
+        },
+      ),
+    });
+
+    const account2 = await api(
+      {
+        type: Account.CreateAccount,
+        name: 'test#2',
+      },
+      overrides,
+    );
+
+    expect(account2).toEqual({
+      type: Account.Account,
+      id: '2',
+      name: 'test#2',
+    });
+
+    expect(messages).toEqual([
+      {
+        name: 'test',
+        type: Account.CreateAccount,
+      },
+      {
+        account: account1,
+        type: Account.AccountCreated,
+      },
+      {
+        name: 'test#2',
+        type: Account.CreateAccount,
+      },
+      {
+        account: {
+          id: '2',
+          name: 'overriden',
+          type: 'Account',
+        },
+        type: Account.AccountCreated,
       },
     ]);
   });
@@ -624,5 +739,61 @@ describe(Never.name, () => {
       // @ts-ignore
       Never('foo');
     }).toThrow(`Never: "foo"`);
+  });
+});
+
+describe(KindOfError.name, () => {
+  it('NewError', () => {
+    const PostError = KindOfError<IPostError>();
+
+    const postError = PostError({
+      type: Post.PostError,
+      postRef: {
+        type: Post.PostRef,
+        id: '1',
+        accountId: 'accountId',
+      },
+    });
+
+    expect(postError).instanceOf(Error);
+    expect(postError.type).toEqual(Post.PostError);
+    expect(postError.data).toEqual({
+      type: Post.PostError,
+      postRef: {
+        type: Post.PostRef,
+        id: '1',
+        accountId: 'accountId',
+      },
+    });
+    expect(postError.message).toContain('Post.PostError');
+  });
+  it('NewError / Inherited', () => {
+    const error = new Error('foo');
+    const PostError = KindOfError<IPostError>();
+
+    const postError = PostError(
+      {
+        type: Post.PostError,
+        postRef: {
+          type: Post.PostRef,
+          id: '1',
+          accountId: 'accountId',
+        },
+      },
+      error,
+    );
+
+    expect(postError).instanceOf(Error);
+    expect(postError.type).toEqual(Post.PostError);
+    expect(postError.data).toEqual({
+      type: Post.PostError,
+      postRef: {
+        type: Post.PostRef,
+        id: '1',
+        accountId: 'accountId',
+      },
+    });
+    expect(postError.message).toEqual('foo');
+    expect(postError.stack).toEqual(error.stack);
   });
 });

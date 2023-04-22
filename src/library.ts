@@ -3,16 +3,18 @@ import {
   IActionHandler,
   IActionKind,
   IApi,
+  IError,
   IFeature,
   IGetKind,
   IHandler,
   IHandlers,
   INone,
   IPromise,
+  IType,
   IUseKind,
   IUseType,
   Kind,
-} from './index';
+} from './index.type';
 
 const DEFAULT_OTHERWISE = (input: any) => {
   throw new Error(`NO_HANDLER: ${JSON.stringify(input)}`);
@@ -27,19 +29,26 @@ function createHandler<
     type: I,
     handler: IActionHandler<IUseType<Input, I>, Input | Imports>,
   ): IHandlers<IUseType<Input, I>, Input | Imports> => {
-    const id =
-      Math.random().toString(16).slice(2) + Math.random().toString(16).slice(2);
-
     const h = {
       kind: kind as IGetKind<IUseType<Input, I>>,
       type,
       handler,
     } as IHandler<IUseType<Input, I>, Input | Imports>;
 
-    return {
-      [type]: h,
-      [`_${type}_${id}`]: h,
-    } as IHandlers<IUseType<Input, I>, Input | Imports>;
+    if (kind === Kind.command || kind === Kind.query) {
+      return {
+        [type]: h,
+      } as IHandlers<IUseType<Input, I>, Input | Imports>;
+    } else {
+      const id =
+        Math.random().toString(16).slice(2) +
+        Math.random().toString(16).slice(2);
+
+      return {
+        [type]: h,
+        [`_${type}_${id}`]: h,
+      } as IHandlers<IUseType<Input, I>, Input | Imports>;
+    }
   };
 }
 
@@ -83,19 +92,23 @@ export function Api<
     | Record<Input['type'], IActionHandler<Input, Imports>[]>
     | undefined = undefined;
 
-  const api: IActionHandler<Input, Imports> = async (input, next) => {
-    if (listener) {
-      await listener(input);
-    }
+  const apiV1: IActionHandler<Input, Imports> = async (input, next) => {
+    if (
+      input instanceof Object &&
+      input.type &&
+      (handlers as any)[input.type]
+    ) {
+      if (listener) {
+        await listener(input);
+      }
 
-    if (input instanceof Object && (handlers as any)[input.type]) {
       const h: IHandler<Input, Imports> = (handlers as any)[
         input.type
       ] as IHandler<Input, Imports>;
 
       if (h.kind === Kind.command || h.kind === Kind.query) {
         // simply handle the command/query
-        return h.handler(input, (next || api) as any);
+        return h.handler(input, (next || apiV1) as any);
       } else {
         // build event handler map
         if (!eventHandlerMap) {
@@ -117,20 +130,55 @@ export function Api<
         const eventHandlers: IActionHandler<Input, Imports>[] =
           (eventHandlerMap as any)[input.type] || [];
 
-        if (eventHandlers) {
-          await Promise.all(
-            eventHandlers.map((h) => h(input, (next || api) as any)),
-          );
+        await Promise.all(
+          eventHandlers.map((h) => h(input, (next || apiV1) as any)),
+        );
 
-          return null as any;
-        }
+        return null as any;
       }
     } else {
       return otherwise(input);
     }
   };
 
-  return (input) => api(input, api as any);
+  return (input, overrides) => {
+    if (overrides) {
+      const apiV2: IActionHandler<Input, Imports> = async (input, next) => {
+        if (
+          overrides instanceof Object &&
+          input.type &&
+          (overrides as any)[input.type]
+        ) {
+          const h: IHandler<Input, Imports> = (overrides as any)[
+            input.type
+          ] as IHandler<Input, Imports>;
+
+          if (h.kind === Kind.command || h.kind === Kind.query) {
+            if (listener) {
+              await listener(input);
+            }
+
+            return h.handler(input, (next || apiV2) as any);
+          } else {
+            // TODO: add support for events to be overridden
+            return apiV1(input, apiV2 as any);
+          }
+        } else {
+          return apiV1(input, apiV2 as any);
+        }
+      };
+      return apiV2(input, apiV2 as any);
+    } else {
+      return apiV1(input, apiV1 as any);
+    }
+  };
+}
+
+export function Handlers<
+  Input extends IAction,
+  Imports extends IAction | INone = INone,
+>(handlers: IHandlers<Input, Imports>): IHandlers<Input, Imports> {
+  return handlers;
 }
 
 export function GetKind<
@@ -169,4 +217,30 @@ export function Never(_: never): never {
   } catch {}
 
   throw new Error(`Never: ${value}`);
+}
+
+export function KindOfError<ErrorType extends IError<IType>>(): (
+  data: ErrorType['data'],
+  messageOrError?: string | Error | undefined | unknown,
+) => ErrorType {
+  return (data, messageOrError) => {
+    let message = '';
+
+    if (typeof messageOrError === 'string') {
+      message = messageOrError;
+    }
+
+    const error = new Error(message || data.type) as ErrorType;
+
+    if (messageOrError instanceof Error) {
+      error.stack = messageOrError.stack;
+      error.message = messageOrError.message;
+      error.cause = messageOrError.cause;
+    }
+
+    error.type = data.type;
+    error.data = data;
+
+    return error as ErrorType;
+  };
 }

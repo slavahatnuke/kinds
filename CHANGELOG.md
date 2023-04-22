@@ -1,5 +1,11 @@
 # kinds
 
+## 3.0.2
+
+### Patch Changes
+
+- up
+
 ## 3.0.1
 
 ### Patch Changes
