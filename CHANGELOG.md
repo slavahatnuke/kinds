@@ -1,5 +1,11 @@
 # kinds
 
+## 3.0.3
+
+### Patch Changes
+
+- Made TS working
+
 ## 3.0.2
 
 ### Patch Changes
