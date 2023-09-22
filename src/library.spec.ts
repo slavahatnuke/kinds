@@ -9,16 +9,7 @@ import {
   Never,
   Nothing,
 } from './library';
-import {
-  ICommand,
-  IError,
-  IEvent,
-  IModel,
-  INotification,
-  IQuery,
-  IRejection,
-  Kind,
-} from './index.type';
+import { ICommand, IError, IEvent, IModel, IQuery, Kind } from './index.type';
 
 enum Account {
   Account = 'Account',
@@ -80,21 +71,9 @@ type IGetPost = IQuery<{ type: Post.GetPost; id: string }, IPost | null>;
 type IGetPosts = IQuery<{ type: Post.GetPosts }, IPost[]>;
 
 type IPostError = IError<{ type: Post.PostError; postRef: IPostRef }>;
-type IPostIsCreating = INotification<{
-  type: Post.PostIsCreating;
-  title: string;
-  accountId: string;
-}>;
-
-type INoRightsToCreatePost = IRejection<{ type: Post.NoRightsToCreatePost }>;
 
 type IPostApi = ICreatePost | IDeletePost | IGetPost | IGetPosts;
-type IPostEvents =
-  | IPostCreated
-  | IPostDeleted
-  | IPostError
-  | IPostIsCreating
-  | INoRightsToCreatePost;
+type IPostEvents = IPostCreated | IPostDeleted | IPostError;
 
 type IAccountApi = ICreateAccount | IGetAccount;
 type IAccountEvents = IAccountCreated;
@@ -525,12 +504,6 @@ describe(Feature.name, () => {
       ...when.error(Post.PostError, (input, next) => {
         mockedEventHandler(input);
       }),
-      ...when.notification(Post.PostIsCreating, (input, next) => {
-        mockedEventHandler(input);
-      }),
-      ...when.rejection(Post.NoRightsToCreatePost, (input, next) => {
-        mockedEventHandler(input);
-      }),
     });
 
     const result1 = await api({
@@ -614,8 +587,6 @@ describe(Feature.name, () => {
       case Kind.command:
       case Kind.query:
       case Kind.event:
-      case Kind.rejection:
-      case Kind.notification:
       case Kind.error:
       case Kind.none:
         expect(kind).toBe(Kind.none);
@@ -701,9 +672,7 @@ describe(Feature.name, () => {
         }),
         ...x.event(Post.PostCreated, (input, next) => {}),
         ...x.event(Post.PostDeleted, (input, next) => {}),
-        ...x.rejection(Post.NoRightsToCreatePost, (input, next) => {}),
         ...x.error(Post.PostError, (input, next) => {}),
-        ...x.notification(Post.PostIsCreating, (input, next) => {}),
       });
 
       return handlers;

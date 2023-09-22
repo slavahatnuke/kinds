@@ -63,12 +63,6 @@ export function Feature<
       [Kind.command]: createHandler<Kind.command, Input, Imports>(Kind.command),
       [Kind.query]: createHandler<Kind.query, Input, Imports>(Kind.query),
       [Kind.event]: createHandler<Kind.event, Input, Imports>(Kind.event),
-      [Kind.rejection]: createHandler<Kind.rejection, Input, Imports>(
-        Kind.rejection,
-      ),
-      [Kind.notification]: createHandler<Kind.notification, Input, Imports>(
-        Kind.notification,
-      ),
       [Kind.error]: createHandler<Kind.error, Input, Imports>(Kind.error),
 
       handlers: (handlers) => handlers,

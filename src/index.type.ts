@@ -12,9 +12,7 @@ export enum Kind {
   command = 'command',
   query = 'query',
   event = 'event',
-  rejection = 'rejection',
   error = 'error',
-  notification = 'notification',
 
   model = 'model',
   none = 'none',
@@ -48,8 +46,6 @@ export type IQuery<T extends IType, Output = void> = T &
   IOutputMeta<Output>;
 
 export type IEvent<T extends IType> = T & IKindMeta<Kind.event>;
-export type IRejection<T extends IType> = T & IKindMeta<Kind.rejection>;
-export type INotification<T extends IType> = T & IKindMeta<Kind.notification>;
 
 export type IModel<T extends IType> = T & IKindMeta<Kind.model>;
 
@@ -57,13 +53,7 @@ export type IError<T extends IType> = Error &
   IType<{ type: T['type']; data: T }> &
   IKindMeta<Kind.error>;
 
-export type IActionKind =
-  | Kind.command
-  | Kind.query
-  | Kind.event
-  | Kind.rejection
-  | Kind.notification
-  | Kind.error;
+export type IActionKind = Kind.command | Kind.query | Kind.event | Kind.error;
 
 export type IAction<
   Type extends IType = IType,
