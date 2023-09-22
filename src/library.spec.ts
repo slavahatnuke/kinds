@@ -1,5 +1,14 @@
 import { describe, expect, it, vi } from 'vitest';
-import { Api, Feature, GetKind, KindOfError, Never, Nothing } from './library';
+import {
+  Api,
+  Feature,
+  GetKind,
+  Handlers,
+  HasHandler,
+  KindOfError,
+  Never,
+  Nothing,
+} from './library';
 import {
   ICommand,
   IError,
@@ -795,5 +804,51 @@ describe(KindOfError.name, () => {
     });
     expect(postError.message).toEqual('foo');
     expect(postError.stack).toEqual(error.stack);
+  });
+});
+
+describe(HasHandler.name, () => {
+  it('test', () => {
+    const on = Feature<ICreateAccount | IGetAccount>();
+    const handlers = Handlers<ICreateAccount | IGetAccount>({
+      ...on.command(Account.CreateAccount, async (command, next) => {
+        const account: IAccount = {
+          type: Account.Account,
+          id: '1',
+          name: command.name,
+        };
+
+        return account;
+      }),
+      ...on.query(Account.GetAccount, async (query) => {
+        return {
+          type: Account.Account,
+          id: query.id,
+          name: `Name ${query.id}`,
+        };
+      }),
+    });
+    const hasHandler = HasHandler(handlers);
+
+    expect(hasHandler(null)).toBe(false);
+    expect(hasHandler(undefined)).toBe(false);
+    expect(
+      hasHandler({
+        type: 'fooo',
+      }),
+    ).toBe(false);
+
+    expect(
+      hasHandler({
+        type: Account.CreateAccount,
+      }),
+    ).toBe(true);
+
+    expect(
+      hasHandler({
+        type: Account.CreateAccount,
+        name: 'test',
+      } satisfies ICreateAccount),
+    ).toBe(true);
   });
 });

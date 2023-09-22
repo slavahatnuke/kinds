@@ -244,3 +244,10 @@ export function KindOfError<ErrorType extends IError<IType>>(): (
     return error as ErrorType;
   };
 }
+
+export function HasHandler<
+  Handlers extends { [P in any]: { kind: any } | undefined | void },
+>(handlers: Handlers): (input: any) => boolean {
+  const getKind = GetKind(handlers);
+  return (input: any) => getKind(input) !== Kind.none;
+}
